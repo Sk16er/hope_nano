@@ -46,7 +46,7 @@ Surrounding the Titans core are **CMS Blocks**—MLPs that operate at different 
 ## Installation
 
 ```bash
-git clone https://github.com/shushank/hope.git
+git clone https://github.com/Sk16er/hope_nano.git
 cd hope
 pip install -r requirements.txt
 ```
