@@ -1,37 +1,51 @@
 """
-Stateful Generation Script for HOPE Model
-Demonstrates true O(1) per-token generation with correct positional encoding.
+HOPE Model Stateful Inference Script.
+
+Demonstrates O(1) per-token generation by passing a persistent, constant-size
+memory state instead of a growing KV cache.
 """
 import torch
 import tiktoken
 import time
 from config import HOPEConfig
-from model import HOPE
+from model import HOPE # Assumes HOPE and HOPEConfig are available
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+def print_explanation():
+    # Prints the technical explanation of HOPE's efficiency.
+    separator = f"{'='*15} TECHNICAL EXPLANATION {'='*15}"
+    print("\n" + separator)
+    
+    print("\n[HOPE ARCHITECTURE ADVANTAGES]")
+    
+    print(f"\n{' '*4}• Stateful Memory: Titans memory persists across tokens.")
+    print(f"{' '*4}• O(1) Complexity: Each new token takes constant time.")
+    print(f"{' '*4}• Infinite Context: Memory size is constant.")
+    
+    print("\n[CONTRAST WITH TRANSFORMERS]")
+    print(f"\n{' '*4}• Transformer: O(T²) time, O(T) memory (KV cache)")
+    print(f"{' '*4}• HOPE: O(1) time, O(1) memory (Titans state)")
+    
+    print(f"{'='*len(separator)}\n")
+
 
 def main():
     print(f"Using device: {device}")
     
-    # Load Model
     config = HOPEConfig()
-    model = HOPE(config)
-    model.to(device)
-    model.eval()
+    model = HOPE(config).to(device).eval()
     
-    # Try to load weights if available
+    # Load trained model weights from checkpoint
     try:
         checkpoint = torch.load("out/hope_best.pt", map_location=device)
         model.load_state_dict(checkpoint['model'])
         print("✓ Loaded trained weights.")
     except FileNotFoundError:
-        print("⚠ No trained weights found. Using random initialization for demo.")
+        print("⚠ No trained weights found. Running with random initialization.")
 
     tokenizer = tiktoken.get_encoding("gpt2")
     
-    # -------------------------------------------------------------------------
-    # Stateful Generation Demo
-    # -------------------------------------------------------------------------
     prompts = [
         "Once upon a time, in a land far away,",
         "The secret to artificial intelligence is",
@@ -53,21 +67,7 @@ def main():
         print(generated_text)
         print(f"\n⏱ Time: {t1 - t0:.2f}s | Tokens/sec: {200 / (t1 - t0):.1f}")
     
-    # -------------------------------------------------------------------------
-    # Explanation
-    # -------------------------------------------------------------------------
-    print("\n" + "="*70)
-    print("Why This Works (Technical Details)")
-    print("="*70)
-    print("1. Stateful Memory: The Titans memory state persists across tokens")
-    print("2. Correct Positions: Each token gets the RIGHT positional embedding")
-    print("   - Token at position 100 gets pos_emb[100], not pos_emb[0]")
-    print("3. O(1) Complexity: Each new token takes constant time")
-    print("4. Infinite Context: Memory is constant-size regardless of history")
-    print("\nThis is fundamentally different from standard Transformers:")
-    print("- Transformer: O(T²) time, O(T) memory (KV cache)")
-    print("- HOPE: O(1) time, O(1) memory (Titans state)")
-    print("="*70)
+    print_explanation()
 
 if __name__ == "__main__":
     main()
