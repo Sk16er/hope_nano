@@ -1,0 +1,5 @@
+torch>=2.0.0
+tiktoken
+datasets
+tqdm
+matplotlib
