@@ -91,5 +91,7 @@ logits, loss, states = model(input_ids)
 # Next Step (Pass 'states' to avoid re-computation)
 logits, loss, states = model(next_token, states=states)
 ```
+## AI-Written
+Hey guys, I had an AI editor review the code for potential errors and add explanatory comments. It generated the comments for clarity because I was too lazy to write them myself.
 
 # Please gave it a star ⭐
