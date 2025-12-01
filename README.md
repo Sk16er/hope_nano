@@ -8,7 +8,7 @@
 
 ## Abstract
 
-**Nano-HOPE** is a pristine, educational, and high-fidelity implementation of the **HOPE** (Higher-Order Policy Engine) architecture. Unlike standard Transformers, HOPE employs a **Self-Modifying Titans Core** that updates its own weights at inference time, allowing it to "learn" from the context dynamically.
+**Nano-HOPE** is an unofficial, educational, and high-fidelity implementation of the **HOPE** (Higher-Order Policy Engine) architecture. Unlike standard Transformers, HOPE employs a **Self-Modifying Titans Core** that updates its own weights at inference time, allowing it to "learn" from the context dynamically.
 
 This repository implements the exact **L2 Regression / Delta Rule** update mechanism described in the research, optimized for readability and educational value.
 
@@ -52,12 +52,35 @@ Surrounding the Titans core are **CMS Blocks**—MLPs that operate at different 
 | Number of Layers (n_layer)   | 8                 |
 | **Total Parameters**         | **≈51.3 Million** |
 
+## Loss graph
+<img width="842" height="393" alt="image" src="https://github.com/user-attachments/assets/c47f6f7c-d119-49cd-b4f8-fd934e32d367" />
+
+
+- Trained on learning rate of `3e-4` and `min_lr` = `3e-5`
+- Total steps `10,000`
+- warmup steps `200`
+
+## Prompt and response 
+> Prompt: Once upon a time, 
+```text
+============================================================
+Once upon a time, !" He slide was so nice his he her. too and a. home a
+, to.. bringing You it true She find listen hug
+ went the a to It time was He it
+
+ everyone bark and that to close asked bread quite much it a bird to! upon He day, was with. started little It, was up a he mom He,
+ in the again,.! was by. twins not the
+ the Lily Ben smiled him door,... park a in noise,
+ and upon He, please " with,. to play a jumped a to be fun looked itWhen. the voice and. was sheAfter is.. was you., to she, the was, was put. even happy
+============================================================
+```
+
 
 ## Installation
 
 ```bash
 git clone https://github.com/Sk16er/hope_nano.git
-cd hope
+cd hope_nano
 pip install -r requirements.txt
 ```
 
