@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zWa65q2WK5lgeeYwJBCNrc4v_AueRFrd?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1IXCZadJB14pqA5d5tgGo3UzQ2B_DTnyR?usp=sharing)
 
 **Author:** Shushank
 
@@ -52,6 +52,10 @@ pip install -r requirements.txt
 ```
 
 ## Quick Start
+## Google coolab 
+You can use the google coolab notebook to run the model currently it Have 50M parameter, and took ~ 60 min to devlop the model. "I have added funstion to clear cache bcz it was crasing in the free version". 
+so it clear the cuda cache in every 500 steps. 
+
 
 ### 1. Training
 Train the model on `TinyStories` with advanced features (Cosine Scheduler, Gradient Clipping):
