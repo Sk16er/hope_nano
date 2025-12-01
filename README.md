@@ -43,6 +43,16 @@ graph LR
 
 Surrounding the Titans core are **CMS Blocks**—MLPs that operate at different timescales to capture long-term structural knowledge.
 
+## Parameters
+
+| **Parameter**                | **Value**         |
+| ---------------------------- | ----------------- |
+| Embedding Dimension (n_embd) | 512               |
+| Number of Heads (n_head)     | 8                 |
+| Number of Layers (n_layer)   | 8                 |
+| **Total Parameters**         | **≈51.3 Million** |
+
+
 ## Installation
 
 ```bash
