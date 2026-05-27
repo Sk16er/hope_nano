@@ -129,6 +129,6 @@ logits, loss, states = model(input_ids)
 logits, loss, states = model(next_token, states=states)
 ```
 ## AI-Written
-Hey guys, I had an AI editor review the code for potential errors and add explanatory comments. It generated the comments for clarity because I was too lazy to write them myself.
+Some of the code is ai generated along with some of the comments
 
 # Please gave it a star ⭐
