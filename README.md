@@ -1,10 +1,11 @@
-# nano-HOPE
+# hope_nano
 
 An unofficial, educational PyTorch implementation of a **Titans-style self-modifying memory layer** with a **multi-rate Continuum Memory System (CMS)**, inspired by Google Research's *Nested Learning* / **HOPE** architecture.
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1RktDXxyAVzWzV0eoH8bGZkFCPd3e6Qax?usp=sharing)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Model on HF](https://img.shields.io/badge/🤗%20Model-sk16er%2Fhope__nano-blue)](https://hf.co/sk16er/hope_nano)
+[![Kaggle Notebook](https://img.shields.io/badge/Notebook-20BEFF?style=flat-square&logo=kaggle&logoColor=white)](https://www.kaggle.com/code/shushank169/notebookcb6e46d855)
 
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/bfcc559d-7384-46cc-b5d5-7ef26c58b281" />
 
@@ -138,7 +139,21 @@ One for a, a little big rock he was many squirrel on green flower down. It said 
 
 His He asked Ben played the man and said, "I found the bird. It said he saw his new chair and got to his big ball with the bowl. But the dog got a big rock
 ```
-<img width="842" height="393" alt="image" src="https://github.com/user-attachments/assets/88a4ebfb-e7a2-461c-aa9a-2ee7aecdb28d" />
+### Loss graph 
+<img width="841" height="393" alt="image" src="https://github.com/user-attachments/assets/347c0b42-9107-403c-a93e-8bfafc9f1aa0" />
+
+
+### Output Diff and Max state Diff
+> Max Output Diff: 3.576279e-07, Max State Diff: 0.000000e+00
+
+### Validation loss and perplexity
+<img width="414" height="80" alt="image" src="https://github.com/user-attachments/assets/4a68cca0-65cb-4085-854a-0193259a0d8b" />
+
+### Titan L2 Alpha/Beta
+<img width="1085" height="590" alt="image" src="https://github.com/user-attachments/assets/0f42a671-a2d8-4aa5-a3bd-4d7fa8f2a6d1" />
+
+
+
 
 
 ## Known limitations
@@ -159,3 +174,10 @@ This is an independent, unofficial reproduction and is not affiliated with or en
 
 ## License
 MIT — see [LICENSE](LICENSE).
+
+# Links
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1RktDXxyAVzWzV0eoH8bGZkFCPd3e6Qax?usp=sharing)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Model on HF](https://img.shields.io/badge/🤗%20Model-sk16er%2Fhope__nano-blue)](https://hf.co/sk16er/hope_nano)
+[![Kaggle Notebook](https://img.shields.io/badge/Notebook-20BEFF?style=flat-square&logo=kaggle&logoColor=white)](https://www.kaggle.com/code/shushank169/notebookcb6e46d855)
+
