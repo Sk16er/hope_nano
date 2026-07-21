@@ -132,12 +132,9 @@ A model trained with this notebook is published at **[hf.co/sk16er/hope_nano](ht
 
 ## Output form the model
 ```text
-Prompt: Once upon a time, a small bird found a golden key.
+Prompt: Once upon a time, 
 ------------------------------
-Once upon a time, a small bird found a golden key. a little little bunny. The boy loved liked to play. One
-One for a, a little big rock he was many squirrel on green flower down. It said Billy said and "Yes, I don't want. I love it? I want you, I can be my dress."
-
-His He asked Ben played the man and said, "I found the bird. It said he saw his new chair and got to his big ball with the bowl. But the dog got a big rock
+Once upon a time, there a a a a time big baby door answer flower. the bird loved it who opened it climb around like the hand. It it would so so happy and to girl a she loved reading dress.
 ```
 ### Loss graph 
 <img width="841" height="393" alt="image" src="https://github.com/user-attachments/assets/347c0b42-9107-403c-a93e-8bfafc9f1aa0" />
