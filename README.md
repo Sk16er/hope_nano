@@ -158,5 +158,4 @@ Inspired by:
 This is an independent, unofficial reproduction and is not affiliated with or endorsed by Google.
 
 ## License
-
 MIT — see [LICENSE](LICENSE).

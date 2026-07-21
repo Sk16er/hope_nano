@@ -1,39 +1,61 @@
 """
-Training Script for HOPE Model (Production-Grade)
-CRITICAL: This script maintains memory states across batches to enable true continual learning.
+Training Script for HOPE Model (Colab Free-Tier Optimized)
+
+Features:
+- Automatic Google Drive mounting and checkpoint auto-resume
+- Stateful memory persistence across training batches
+- Mixed precision (fp16 autocast + GradScaler)
+- Continuum Memory System (CMS) multi-rate gradient updates
+- Sample generation logging at every evaluation step
+- Scaled for ~300M - 1B tokens total across multiple resumed sessions
 """
 import os
 import time
 import math
 import torch
 import tiktoken
-from datasets import load_dataset
 from torch.utils.data import DataLoader, IterableDataset
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 from config import HOPEConfig
 from model import HOPE
 
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-batch_size = 8  # Reduced for stability with state persistence
-max_iters = 5000
-eval_interval = 500
+batch_size = 32
+max_iters = 50000       # ~400M tokens total (32 batch * 256 block * 50k steps)
+eval_interval = 250
+save_interval = 250
 learning_rate = 3e-4
 min_lr = 3e-5
-warmup_iters = 200
+warmup_iters = 1000
 grad_clip = 1.0
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-eval_iters = 200
+eval_iters = 50
+state_reset_interval = 5000  # Long reset interval to maintain continuous memory
 out_dir = 'out'
-state_reset_interval = 500  # Reset states periodically to prevent drift
 # -----------------------------------------------------------------------------
 
-os.makedirs(out_dir, exist_ok=True)
+def setup_checkpoint_dir(out_dir='out'):
+    """Mount Google Drive if available and create checkpoint directories."""
+    drive_dir = '/content/drive/MyDrive/hope_checkpoints'
+    try:
+        from google.colab import drive
+        if not os.path.exists('/content/drive'):
+            print("Mounting Google Drive...")
+            drive.mount('/content/drive')
+        os.makedirs(drive_dir, exist_ok=True)
+        print(f"✓ Google Drive checkpoint directory: {drive_dir}")
+        return drive_dir
+    except Exception:
+        os.makedirs(out_dir, exist_ok=True)
+        print(f"✓ Local checkpoint directory: {out_dir}")
+        return out_dir
 
 class StreamingTextDataset(IterableDataset):
-    """Memory-efficient streaming dataset"""
+    """Memory-efficient streaming dataset from TinyStories"""
     def __init__(self, split="train", block_size=256):
+        from datasets import load_dataset
         self.dataset = load_dataset("roneneldan/TinyStories", split=split, streaming=True)
         self.tokenizer = tiktoken.get_encoding("gpt2")
         self.block_size = block_size
@@ -50,26 +72,34 @@ class StreamingTextDataset(IterableDataset):
                 y = torch.tensor(chunk[1:], dtype=torch.long)
                 yield x, y
 
+def generate_sample(model, tokenizer, prompt="Once upon a time,", max_new_tokens=50):
+    """Generates a text sample for evaluation logging"""
+    model.eval()
+    start_ids = torch.tensor(tokenizer.encode(prompt), dtype=torch.long, device=device).unsqueeze(0)
+    with torch.no_grad():
+        out_ids = model.generate(start_ids, max_new_tokens=max_new_tokens, temperature=0.8, top_k=40)
+    sample_text = tokenizer.decode(out_ids[0].tolist())
+    model.train()
+    return sample_text
+
 def estimate_loss(model, val_loader, persistent_states):
-    """Evaluate with state persistence"""
-    out = {}
+    """Evaluate validation loss with state persistence"""
     model.eval()
     losses = torch.zeros(eval_iters)
-    eval_states = persistent_states  # Start from current training state
+    eval_states = persistent_states
     
     for k, (X, Y) in enumerate(val_loader):
         if k >= eval_iters:
             break
         X, Y = X.to(device), Y.to(device)
         with torch.no_grad():
-            logits, loss, eval_states = model(X, Y, states=eval_states)
-            # Detach states
+            with autocast('cuda', enabled=(device == 'cuda'), dtype=torch.float16 if device == 'cuda' else torch.float32):
+                logits, loss, eval_states = model(X, Y, states=eval_states)
             eval_states = [s.detach() if s is not None else None for s in eval_states]
         losses[k] = loss.item()
     
-    out['val'] = losses.mean()
     model.train()
-    return out
+    return losses.mean().item()
 
 def get_lr(it):
     """Cosine learning rate schedule with warmup"""
@@ -83,50 +113,58 @@ def get_lr(it):
 
 def main():
     print(f"Using device: {device}")
+    ckpt_dir = setup_checkpoint_dir(out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     
     config = HOPEConfig()
-    config.block_size = 256
+    model = HOPE(config).to(device)
+    tokenizer = tiktoken.get_encoding("gpt2")
     
-    model = HOPE(config)
-    model.to(device)
-    
-    # CRITICAL FIX: Compile the model
-    if hasattr(torch, 'compile'):
-        print("Compiling model with torch.compile...")
-        model = torch.compile(model)
-        print("✓ Compilation enabled (6-10x speedup)")
-    else:
-        print("⚠ torch.compile not available (update to PyTorch 2.0+)")
-    
-    print(f"Number of parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
+    print(f"Model parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
     
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.1)
-    scaler = GradScaler()  # Mixed precision
+    scaler = GradScaler('cuda', enabled=(device == 'cuda'))
     
+    # Auto-resume logic
+    latest_ckpt_path = os.path.join(ckpt_dir, "hope_latest.pt")
+    local_latest_ckpt = os.path.join(out_dir, "hope_latest.pt")
+    
+    ckpt_to_load = None
+    if os.path.exists(latest_ckpt_path):
+        ckpt_to_load = latest_ckpt_path
+    elif os.path.exists(local_latest_ckpt):
+        ckpt_to_load = local_latest_ckpt
+        
+    start_iter = 0
+    best_val_loss = 1e9
+    persistent_states = None
+    
+    if ckpt_to_load:
+        print(f"Loading checkpoint from {ckpt_to_load}...")
+        checkpoint = torch.load(ckpt_to_load, map_location=device)
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_iter = checkpoint['iter_num'] + 1
+        best_val_loss = checkpoint.get('best_val_loss', 1e9)
+        persistent_states = checkpoint.get('persistent_states', None)
+        print(f"✓ Resumed training from step {start_iter} (best val loss: {best_val_loss:.4f})")
+        
     train_dataset = StreamingTextDataset(split="train", block_size=config.block_size)
     val_dataset = StreamingTextDataset(split="validation", block_size=config.block_size)
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size)
     val_loader = DataLoader(val_dataset, batch_size=batch_size)
-    
-    iter_num = 0
-    best_val_loss = 1e9
-    t0 = time.time()
-    
-    # CRITICAL FIX: Persistent states across batches
-    persistent_states = None
-    
     train_iter = iter(train_loader)
     
     print("\n" + "="*60)
-    print("TRAINING WITH STATEFUL MEMORY")
-    print("="*60)
-    print("Memory states will persist across batches.")
-    print(f"State reset interval: {state_reset_interval} steps")
+    print("HOPE MODEL TRAINING (STATEFUL MEMORY + CMS MULTI-RATE)")
+    print(f"Target steps: {max_iters} | Batch size: {batch_size} | Block size: {config.block_size}")
     print("="*60 + "\n")
     
+    t0 = time.time()
+    iter_num = start_iter
+    
     while iter_num < max_iters:
-        # Learning rate schedule
         lr = get_lr(iter_num)
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
@@ -139,53 +177,64 @@ def main():
             
         X, Y = X.to(device), Y.to(device)
         
-        # CRITICAL FIX: Forward pass with state persistence
-        with autocast():
+        # Forward pass with mixed precision and state persistence
+        with autocast('cuda', enabled=(device == 'cuda'), dtype=torch.float16):
             logits, loss, new_states = model(X, Y, states=persistent_states)
-        
-        # CRITICAL FIX: Detach states to prevent backprop through entire history
+            
+        # Detach states to bound backpropagation computation graph
         persistent_states = [s.detach() if s is not None else None for s in new_states]
         
-        # Backward pass with gradient scaling
+        # Backward pass
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
         
-        # Gradient clipping
+        # Enforce multi-rate updates for CMS blocks
         scaler.unscale_(optimizer)
+        model.enforce_cms_update_periods(iter_num)
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         
         scaler.step(optimizer)
         scaler.update()
         
         # Periodic state reset to prevent drift
-        if iter_num % state_reset_interval == 0 and iter_num > 0:
-            print(f"[Step {iter_num}] Resetting states to prevent drift")
+        if iter_num > 0 and iter_num % state_reset_interval == 0:
+            print(f"[Step {iter_num}] Periodic state reset")
             persistent_states = None
-        
-        # Evaluation
+            
+        # Evaluation & Checkpoint saving
         if iter_num % eval_interval == 0:
-            losses = estimate_loss(model, val_loader, persistent_states)
-            print(f"step {iter_num}: train loss {loss.item():.4f}, val loss {losses['val']:.4f}, lr {lr:.2e}")
+            val_loss = estimate_loss(model, val_loader, persistent_states)
+            dt = time.time() - t0
+            t0 = time.time()
+            print(f"\n--- Step {iter_num}/{max_iters} | Train Loss: {loss.item():.4f} | Val Loss: {val_loss:.4f} | LR: {lr:.2e} | Time: {dt:.2f}s ---")
             
-            if losses['val'] < best_val_loss:
-                best_val_loss = losses['val']
-                # Save model checkpoint
-                checkpoint = {
-                    'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'iter_num': iter_num,
-                    'best_val_loss': best_val_loss,
-                    'config': config,
-                }
+            # Generate sample
+            sample_text = generate_sample(model, tokenizer)
+            print(f"Sample: \"{sample_text.strip()}\"\n")
+            
+            # Save latest checkpoint
+            checkpoint = {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'iter_num': iter_num,
+                'best_val_loss': best_val_loss,
+                'persistent_states': persistent_states,
+                'config': config,
+            }
+            
+            torch.save(checkpoint, os.path.join(ckpt_dir, "hope_latest.pt"))
+            torch.save(checkpoint, os.path.join(out_dir, "hope_latest.pt"))
+            
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                checkpoint['best_val_loss'] = best_val_loss
+                torch.save(checkpoint, os.path.join(ckpt_dir, "hope_best.pt"))
                 torch.save(checkpoint, os.path.join(out_dir, "hope_best.pt"))
-                print(f"✓ Saved best model (val_loss: {best_val_loss:.4f})")
-            
+                print(f"✓ Saved new best model (val_loss: {best_val_loss:.4f})")
+                
         iter_num += 1
-        
-    print(f"\n{'='*60}")
-    print(f"Training finished in {time.time() - t0:.2f}s")
-    print(f"Best validation loss: {best_val_loss:.4f}")
-    print(f"{'='*60}")
+
+    print(f"\nTraining complete! Final best validation loss: {best_val_loss:.4f}")
 
 if __name__ == "__main__":
     main()
